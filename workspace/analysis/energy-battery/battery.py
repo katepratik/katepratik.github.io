@@ -54,9 +54,17 @@ def _(mo):
 
 @app.cell(hide_code=True)
 def _(pd, mo):
-    _base = mo.notebook_location() / "public"
-    _load = pd.read_csv(str(_base / "load_halfhourly.csv"))
-    _prices = pd.read_csv(str(_base / "agile_prices.csv"))
+    def _read(name):
+        src = str(mo.notebook_location() / "public" / name)
+        if src.startswith("http"):
+            # In the browser: GitHub Pages serves CSVs gzip-encoded and pandas' own URL reader then
+            # tries to gunzip text the browser already decoded. Fetch with Pyodide instead.
+            from pyodide.http import open_url
+            return pd.read_csv(open_url(src))
+        return pd.read_csv(src)
+
+    _load = _read("load_halfhourly.csv")
+    _prices = _read("agile_prices.csv")
     df = _load.merge(_prices, on="interval_start")
     df.index = pd.to_datetime(df.pop("interval_start"), utc=True)
     df = df.sort_index()
