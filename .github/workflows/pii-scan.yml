@@ -1,0 +1,26 @@
+name: PII scan
+
+# Backstop for the local pre-push hook: the repo is public, so this runs after content is
+# already visible. It exists to alert (failed run = email) if anything slips through.
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 6 * * 1"   # weekly re-scan, in case the denylist grows
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Scan tracked files for PII and secrets
+        env:
+          PII_DENYLIST: ${{ secrets.PII_DENYLIST }}
+        run: python .github/scripts/pii_scan.py --require-denylist

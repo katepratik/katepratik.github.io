@@ -1,0 +1,20 @@
+#!/bin/sh
+# Block pushes that would publish PII or secrets. Enabled per clone with:
+#   git config core.hooksPath .githooks
+#   git config pii.denylist <path to the private denylist file>
+# The denylist lives in the private katepratik/workspace repo (security/pii-denylist.txt).
+denylist="$(git config pii.denylist)"
+if [ -z "$denylist" ]; then
+  echo "pre-push: git config pii.denylist is not set; refusing to push unscanned." >&2
+  exit 1
+fi
+# first interpreter that actually runs (on Windows `python3` can be the Microsoft Store stub)
+PY=""
+for c in python3 python py; do
+  if command -v "$c" >/dev/null 2>&1 && "$c" -c "import sys" >/dev/null 2>&1; then PY="$c"; break; fi
+done
+if [ -z "$PY" ]; then
+  echo "pre-push: no working Python found; refusing to push unscanned." >&2
+  exit 1
+fi
+exec "$PY" "$(git rev-parse --show-toplevel)/.github/scripts/pii_scan.py" --denylist "$denylist" --require-denylist
